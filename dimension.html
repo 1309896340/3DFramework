@@ -1,0 +1,210 @@
+<!doctype>
+<html>
+	<meta charset="UTF-8">
+	<head>
+		<title>Dimension</title>
+		<style type="text/css">
+			*{
+				padding:0;
+				margin:0;
+			}
+			canvas{
+				display:block;
+				background:#000000;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas">浏览器不支持，请更换浏览器！</canvas>
+		<script type="text/javascript">
+			can = document.getElementById("canvas");
+			ctx = can.getContext("2d");
+			
+			var w = can.width = window.innerWidth,h = can.height = window.innerHeight;
+			var leftMouseDown = false,rightMouseDown = false;
+			var curX = 0,curY = 0;
+			
+			var dx1=0,dy1=0,dx2=0,dy2=0;
+			
+			window.onresize = function(){
+				w = can.width = window.innerWidth;
+				h = can.height = window.innerHeight;
+			}
+			
+		
+			function Stage(){
+				this.biasX = w/2;		//坐标原点偏移量x
+				this.biasY = h/2;		//坐标原点偏移量y
+				
+				this.tx = 0;			//三坐标偏移角
+				this.ty = 0;
+				this.tz = 0;
+							
+				this.tmr = 0;
+			}
+			Stage.prototype = {
+				fitRad:function(rx,ry,rz){	//更新坐标系角度
+					this.tx += rx;
+					this.ty += ry;
+					this.tz += rz;
+				},
+				fitBias:function(bx,by){	//更新坐标系位置
+					this.biasX += bx;
+					this.biasY += by;
+				},
+				clearStage:function(){		//清空
+					ctx.clearRect(0,0,w,h);
+				},
+				transCdnt:function(x0,y0,z0){	//坐标变换
+					let nx,ny,nz,nx1,ny1,nz1,nx2,ny2,nz2;
+					//加入三维坐标旋转
+						nx = x0;
+						ny = y0*Math.cos(this.tx)-z0*Math.sin(this.tx);
+						nz = y0*Math.sin(this.tx)+z0*Math.cos(this.tx);
+						
+						nx1 = nx*Math.cos(this.ty)-nz*Math.sin(this.ty);
+						ny1 = ny;
+						nz1 = nx*Math.sin(this.ty)+nz*Math.cos(this.ty);
+						
+						nx2 = nx1*Math.cos(this.tz)-ny1*Math.sin(this.tz);
+						ny2 = nx1*Math.sin(this.tz)+ny1*Math.cos(this.tz);
+						nz2 = nz1;
+					//屏幕坐标=>直角坐标映射
+					let xx = -nx2/Math.sqrt(5) + ny2 , yy = nx2*2/Math.sqrt(5) - nz2 ;	//非正交映射
+					//let xx = ny2 , yy = nx2;	//正交映射
+					
+					//原点坐标偏移
+					xx += this.biasX;
+					yy += this.biasY;
+					return {x:xx,y:yy};
+				},
+				drawCoordinate:function(){
+					//绘制轴
+					ctx.strokeStyle = "#FFFFFF";
+					this.drawLine(0,0,0,1000,0,0);
+					this.drawLine(0,0,0,0,1000,0);
+					this.drawLine(0,0,0,0,0,1000);
+					
+					//标注轴
+					ctx.fillStyle = "#F8F8F8";
+					ctx.font = "20px Arial";
+					let nxy = this.transCdnt(300,20,0);
+					ctx.fillText("x轴",nxy.x,nxy.y);
+					nxy = this.transCdnt(0,300,20);
+					ctx.fillText("y轴",nxy.x,nxy.y);
+					nxy = this.transCdnt(20,20,300);
+					ctx.fillText("z轴",nxy.x,nxy.y);
+					
+					//标注坐标偏移角度
+					ctx.fillStyle = "#F028A0";
+					ctx.font = "15px Arial";
+					ctx.fillText("tx="+Math.round(this.tx*180/Math.PI)+"°",50,30);
+					ctx.fillText("ty="+Math.round(this.ty*180/Math.PI)+"°",50,60);
+					ctx.fillText("tz="+Math.round(this.tz*180/Math.PI)+"°",50,90);
+					
+					//绘制坐标刻度
+					ctx.fillStyle = "#F8F800";
+					ctx.font = "10px Arial";
+					for(let i=0;i<=20;i++){
+						nxy = this.transCdnt(i*50,0,0);
+						ctx.fillText(i*50,nxy.x,nxy.y);
+						nxy = this.transCdnt(0,i*50,0);
+						ctx.fillText(i*50,nxy.x,nxy.y);
+						nxy = this.transCdnt(0,0,i*50);
+						ctx.fillText(i*50,nxy.x,nxy.y);
+					}
+				},
+				drawLine:function(x0,y0,z0,x1,y1,z1){
+					ctx.beginPath();
+					let nxy = this.transCdnt(x0,y0,z0);
+					ctx.moveTo(nxy.x,nxy.y);
+					nxy = this.transCdnt(x1,y1,z1);
+					ctx.lineTo(nxy.x,nxy.y);
+					ctx.stroke();
+				},
+				drawCube:function(x,y,z,wx,wy,wz,style){		//边长为a的正方体
+					let pts = [[-wx/2,-wy/2,-wz/2],[-wx/2,-wy/2,wz/2],[-wx/2,wy/2,-wz/2],[-wx/2,wy/2,wz/2],[wx/2,-wy/2,-wz/2],[wx/2,-wy/2,wz/2],[wx/2,wy/2,-wz/2],[wx/2,wy/2,wz/2]];
+					
+					ctx.strokeStyle = style;
+					this.drawLine(x + pts[0][0],y + pts[0][1],z + pts[0][2],x + pts[1][0],y + pts[1][1],z + pts[1][2]);
+					this.drawLine(x + pts[0][0],y + pts[0][1],z + pts[0][2],x + pts[2][0],y + pts[2][1],z + pts[2][2]);
+					this.drawLine(x + pts[0][0],y + pts[0][1],z + pts[0][2],x + pts[4][0],y + pts[4][1],z + pts[4][2]);
+					
+					this.drawLine(x + pts[3][0],y + pts[3][1],z + pts[3][2],x + pts[1][0],y + pts[1][1],z + pts[1][2]);
+					this.drawLine(x + pts[5][0],y + pts[5][1],z + pts[5][2],x + pts[1][0],y + pts[1][1],z + pts[1][2]);
+					
+					this.drawLine(x + pts[3][0],y + pts[3][1],z + pts[3][2],x + pts[2][0],y + pts[2][1],z + pts[2][2]);
+					this.drawLine(x + pts[6][0],y + pts[6][1],z + pts[6][2],x + pts[2][0],y + pts[2][1],z + pts[2][2]);
+					
+					this.drawLine(x + pts[5][0],y + pts[5][1],z + pts[5][2],x + pts[4][0],y + pts[4][1],z + pts[4][2]);
+					this.drawLine(x + pts[6][0],y + pts[6][1],z + pts[6][2],x + pts[4][0],y + pts[4][1],z + pts[4][2]);
+					
+					this.drawLine(x + pts[7][0],y + pts[7][1],z + pts[7][2],x + pts[3][0],y + pts[3][1],z + pts[3][2]);
+					this.drawLine(x + pts[7][0],y + pts[7][1],z + pts[7][2],x + pts[5][0],y + pts[5][1],z + pts[5][2]);
+					this.drawLine(x + pts[7][0],y + pts[7][1],z + pts[7][2],x + pts[6][0],y + pts[6][1],z + pts[6][2]);
+				},
+				run:function(){
+					this.tmr = setInterval(function(obj){		//舞台总布局
+						obj.clearStage();									//清除上一次的画面
+						obj.drawCoordinate();								//绘制坐标系
+						obj.drawCube(100,100,100,200,200,200,"#FF0000");	//绘制立方块
+					},30,this);
+				},
+				stop:function(){		//停止绘制
+					if(this.tmr != 0){
+						removeInterval(this.tmr);
+					}
+					this.tmr = 0;
+				}
+			}
+			
+			var st = new Stage();
+			st.run();
+			
+			canvas.addEventListener("mousedown",function(e){
+				dx1 = dx2 = curX;
+				dy1 = dy2 = curY;
+				if(e.button == 0){
+					leftMouseDown = true;
+					rightMouseDown = false;
+				}else if(e.button == 2){
+					rightMouseDown = true;
+					leftMouseDown = false;
+				}
+			});
+			
+			canvas.addEventListener("mousemove",function(e){
+				curX = e.clientX;
+				curY = e.clientY;
+				if(leftMouseDown){
+					//鼠标左键拖动调整坐标系位置
+					st.fitBias(dx2-dx1,dy2-dy1);
+					dx1 = dx2;
+					dy1 = dy2;
+					dx2 = curX;
+					dy2 = curY;
+				}else if(rightMouseDown){
+					//鼠标右键拖动调整坐标系角度		//本人暂时无法写出更好的角度控制算法，希望有人能改进
+					//st.fitRad((dx2-dx1)/100,0,0);
+					//st.fitRad(0,(dx2-dx1)/100,0);
+					st.fitRad(0,0,(dx2-dx1)/100);
+					
+					dx1 = dx2;
+					dy1 = dy2;
+					dx2 = curX;
+					dy2 = curY;
+				}
+			});
+			
+			canvas.addEventListener("mouseup",function(e){
+				leftMouseDown = false;
+				rightMouseDown = false;
+			});
+			
+			canvas.oncontextmenu = function(){		//隐藏右键菜单
+				return false;
+			}
+			
+		</script>
+	</body>
+</html>
